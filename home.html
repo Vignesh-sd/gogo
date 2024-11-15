@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Home Page</title>
+        <!-- <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDKzNNaMvxfF1Up9mPLTvsarv5yWHISXNA" async defer></script> -->
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDKzNNaMvxfF1Up9mPLTvsarv5yWHISXNA&sensor=false"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+        <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
+        <style>
+            /* General layout */
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                height: 100vh;
+                overflow: hidden;
+                display: flex;
+            }
+
+            .container {
+                display: flex;
+                width: 100%;
+                height: 100%;
+            }
+
+            /* Sidebar styles */
+            .sidebar {
+                width: 275px;
+                background-color: #f4f4f4;
+                border-right: 1px solid #ddd;
+                padding: 20px;
+                overflow-y: auto;
+                z-index: 5;
+            }
+
+            .tabs {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 20px;
+                margin-top: 10px;
+            }
+
+            .tab {
+                padding: 10px;
+                cursor: pointer;
+                font-weight: bold;
+                text-align: center;
+                background-color: #cf6262;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                width: 100%;
+                color: white;
+                transition: background-color 0.3s;
+            }
+
+            .tab:hover {
+                background-color: #f1f1f1;
+                color: #000;
+            }
+
+            .tab.active {
+                background-color: #4caf50;
+                color: white;
+            }
+
+            #tab-content {
+                margin-top: 20px;
+                color: black;
+                padding: 15px;
+            }
+
+            #gsearch {
+                width: 100%;
+                padding: 10px;
+                font-size: 16px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }
+
+            #gsearch:focus {
+                border-color: #007bff;
+                outline: none;
+            }
+
+            .suggestions-list {
+                position: absolute;
+                background: #fff;
+                border: 1px solid #ccc;
+                max-height: 200px;
+                overflow-y: auto;
+                width: 245px;
+                z-index: 1000;
+                margin-top: 4px;
+                border-radius: 4px;
+            }
+
+            .suggestions-list div {
+                padding: 10px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: background-color 0.3s ease;
+            }
+
+            .suggestions-list div:hover {
+                background-color: #f0f0f0;
+            }
+
+            /* Map styles */
+            #map {
+                flex: 1;
+                height: 100%;
+            }
+
+            /* User avatar styles */
+            #user-avatar {
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 24px;
+                background-color: #4285f4;
+                color: #fff;
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                cursor: pointer;
+                z-index: 10;
+            }
+
+            #user-avatar img {
+                border-radius: 50%;
+                width: 100%;
+                height: 100%;
+                display: none;
+            }
+
+            /* Popover styles */
+            .popover {
+                display: none;
+                position: absolute;
+                top: 80px;
+                right: 20px;
+                width: 250px;
+                padding: 15px;
+                background-color: white;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+                z-index: 9;
+            }
+
+            .popover.active {
+                display: block;
+            }
+
+            .popover h3,
+            .popover p {
+                margin: 5px 0;
+            }
+
+            .signout-btn {
+                display: flex;
+                align-items: center;
+                background-color: #f44336;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+
+            .signout-btn:hover {
+                background-color: #d32f2f;
+            }
+
+            #battery-details h3 {
+                font-size: 1.5em;
+                color: #333;
+            }
+            #battery-details ul {
+                list-style: none;
+                padding: 0;
+            }
+
+            /* Profile icon styling */
+            .profile-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                color: #fff;
+                font-weight: bold;
+                font-size: 1em;
+                margin-right: 10px;
+                margin-bottom: 5px;
+            }
+
+            /* Color for different battery levels */
+            .high {
+                background-color: #19851d;
+            } /* Green for >90% */
+            .mid-high {
+                background-color: #ffeb3b;
+                color: #333;
+            } /* Yellow for 80-90% */
+            .mid {
+                background-color: #ff9800;
+            } /* Orange for 70-80% */
+            .low {
+                background-color: #f44336;
+            } /* Red for <70% */
+
+            /* Slide-in animation for the sidebar */
+            @keyframes slideInLeft {
+                from {
+                    transform: translateX(-100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+
+            .sidebar {
+                animation: slideInLeft 0.8s ease-out;
+            }
+
+            /* Fade-in animation for map */
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                }
+                to {
+                    opacity: 1;
+                }
+            }
+
+            #map {
+                animation: fadeIn 1s ease-in;
+            }
+
+            /* Pulse effect for the tab */
+            @keyframes pulse {
+                0% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.05);
+                }
+                100% {
+                    transform: scale(1);
+                }
+            }
+
+            .tab.active {
+                animation: pulse 1.5s infinite;
+            }
+
+            /* Zoom-in animation for the search box */
+            @keyframes zoomIn {
+                from {
+                    transform: scale(0.8);
+                    opacity: 0;
+                }
+                to {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+
+            #gsearch {
+                animation: zoomIn 0.6s ease-out;
+            }
+
+            /* Fade-in-up animation for battery details */
+            @keyframes fadeInUp {
+                from {
+                    transform: translateY(20px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+
+            #battery-details {
+                animation: fadeInUp 0.8s ease-out;
+            }
+
+            /* Popover fade-in-down animation */
+            @keyframes fadeInDown {
+                from {
+                    transform: translateY(-20px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+
+            .popover {
+                animation: fadeInDown 0.6s ease-out;
+            }
+
+            /* Rubber-band effect for sign-out button */
+            @keyframes rubberBand {
+                0% {
+                    transform: scale(1);
+                }
+                30% {
+                    transform: scale(1.25, 0.75);
+                }
+                40% {
+                    transform: scale(0.75, 1.25);
+                }
+                50% {
+                    transform: scale(1.15, 0.85);
+                }
+                65% {
+                    transform: scale(0.95, 1.05);
+                }
+                75% {
+                    transform: scale(1.05, 0.95);
+                }
+                100% {
+                    transform: scale(1);
+                }
+            }
+
+            .signout-btn {
+                animation: rubberBand 1s ease;
+            }
+
+            /* Add delay to user avatar fade-in */
+            #user-avatar {
+                animation: fadeIn 1.2s ease-in;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <!-- Sidebar -->
+            <div class="sidebar" id="sidebar">
+                <div class="tabs">
+                    <div class="tab active" id="tabBatteryInfo">Swap Station Info</div>
+                </div>
+
+                <!-- Content Area -->
+                <div id="tab-content">
+                    <div id="battery-info">
+                        <p id="battery-info-text">Swap Station</p>
+                        <input type="search" id="gsearch" name="gsearch" placeholder="Search Swap Station Name" />
+                        <div id="searchSuggestions" class="suggestions-list"></div>
+                    </div>
+                    <div id="battery-details"></div>
+                </div>
+            </div>
+
+            <!-- Map -->
+            <div id="map"></div>
+        </div>
+
+        <!-- User Avatar -->
+        <div id="user-avatar">
+            <div id="user-initial"></div>
+            <img id="user-avatar-img" alt="User Avatar" />
+        </div>
+
+        <!-- User Popover -->
+        <div class="popover" id="user-popover">
+            <h3>Welcome, <span id="popover-user-name"></span>!</h3>
+            <br />
+            <p id="popover-user-email"></p>
+            <br />
+            <button class="signout-btn" onclick="signOut()">Sign out</button>
+        </div>
+
+        <!-- Swap Station Details -->
+        <div id="swapStationDetails" style="display: none;"></div>
+
+        <!-- User Info -->
+        <div class="container1" id="user-info" style="display: none;">
+            <h2 style="display: none;">Welcome, <span id="user-name"></span>!</h2>
+            <p style="display: none;">Email: <span id="user-email"></span></p>
+        </div>
+
+        <script type="module">
+            import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+                const supabaseUrl = "https://ivbxlzzbrhsvjxkcebms.supabase.co";
+                const supabaseKey =
+                    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2Ynhsenpicmhzdmp4a2NlYm1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEwMzkyOTMsImV4cCI6MjA0NjYxNTI5M30.utG9zehkI8nmnPd6dYRUQ3vK-LY3RK3TE3xHiT1j5V8";
+                const supabase = createClient(supabaseUrl, supabaseKey);
+
+            async function checkUserSession() {
+                const {
+                    data: { session },
+                } = await supabase.auth.getSession();
+                if (session) {
+                    displayUserInfo(session.user);
+                } else {
+                    window.location.href = "index.html";
+                }
+            }
+
+            checkUserSession();
+
+            function displayUserInfo(user) {
+                const userName = user.user_metadata.full_name || "User";
+                const userEmail = user.email;
+                const avatarUrl = user.user_metadata.avatar_url;
+
+                document.getElementById("user-name").textContent = userName;
+                document.getElementById("user-email").textContent = userEmail;
+                document.getElementById("popover-user-name").textContent = userName;
+                document.getElementById("popover-user-email").textContent = userEmail;
+
+                if (avatarUrl) {
+                    document.getElementById("user-avatar-img").src = avatarUrl;
+                    document.getElementById("user-avatar-img").style.display = "block";
+                    document.getElementById("user-initial").style.display = "none";
+                } else {
+                    document.getElementById("user-initial").textContent = userName.charAt(0).toUpperCase();
+                    document.getElementById("user-avatar-img").style.display = "none";
+                }
+
+                document.getElementById("user-info").style.display = "block";
+            }
+
+            function togglePopover() {
+                const popover = document.getElementById("user-popover");
+                popover.classList.toggle("active");
+            }
+
+            document.getElementById("user-avatar").addEventListener("click", togglePopover);
+
+            async function signOut() {
+                try {
+                    const { error } = await supabase.auth.signOut();
+                    if (error) {
+                        console.error("Sign-Out error:", error.message);
+                        alert("An error occurred during sign-out. Please try again.");
+                        return;
+                    }
+
+                    // Clear Supabase auth token from storage
+                    localStorage.removeItem("supabase.auth.token");
+                    sessionStorage.removeItem("supabase.auth.token");
+
+                    // Redirect to login page
+                    // window.location.href = "index.html";
+                } catch (err) {
+                    console.error("Unexpected sign-out error:", err);
+                    alert("An unexpected error occurred. Please try again.");
+                }
+            }
+
+            // Expose the function globally
+            window.signOut = signOut;
+        </script>
+        
+
+        <script>
+            let map; // Declare map variable globally
+            let currentInfoWindow = null; // Track the currently open InfoWindow
+            const markers = []; // Array to store markers
+
+            // Marker assets mapping based on battery status
+            const markerAssets = {
+                darkGreen: "assets/dark_green_marker.svg",
+                lightGreen: "assets/green_marker.svg",
+                yellow: "assets/yellow_marker.svg",
+                orange: "assets/orange_marker.svg",
+                red: "assets/red_marker.svg",
+            };
+
+            // Function to initialize the map
+            function initMap() {
+                map = new google.maps.Map(document.getElementById("map"), {
+                    zoom: 10,
+                    mapTypeControl: true,
+                    mapTypeControlOptions: {
+                        style: google.maps.MapTypeControlStyle.DEFAULT,
+                        // position: google.maps.ControlPosition.BOTTOM_RIGHT,
+
+                        mapTypeIds: ["roadmap", "satellite"],
+                    },
+                    fullscreenControl: false,
+                });
+            }
+
+            // Function to determine marker color based on battery percentages
+            function getBatteryColor(station) {
+                if (station.batteries.total === 0) {
+                    return "red"; // Default color if there are no batteries
+                }
+
+                const Above90 = (station.batteries.charge90 / station.batteries.total) * 100;
+                const btwn80to90 = (station.batteries.charge80 / station.batteries.total) * 100;
+
+                if (Above90 > 30) {
+                    return "darkGreen";
+                } else if (Above90 >= 10 && Above90 <= 30) {
+                    return "lightGreen";
+                } else if ((Above90 > 0 && Above90 < 10) || btwn80to90 > 30) {
+                    return "yellow";
+                } else if (btwn80to90 >= 10 && btwn80to90 <= 30) {
+                    return "orange";
+                } else {
+                    return "red";
+                }
+            }
+
+            const edgeFunctionUrl = "https://ocndhcklbgtrtlrdrwer.supabase.co/functions/v1/bigquery/getSwapStationDetails";
+
+            // Function to fetch data and update the map
+            async function callEdgeFunction() {
+                const bikeNumber = "UFS474S";
+                const payload = { bikeNumber };
+
+                try {
+                    const response = await fetch(edgeFunctionUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization:
+                                "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jbmRoY2tsYmd0cnRscmRyd2VyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTc1MTU1MjIsImV4cCI6MjAzMzA5MTUyMn0.hL5GsW44Exs3rjuWrwjJV1PnCbELAJ3eWAu75MQ0Sf8",
+                        },
+                        body: JSON.stringify(payload),
+                    });
+
+                    const data = await response.json();
+                    console.log("API Response:", data);
+
+                    const swapStationDetails = document.getElementById("swapStationDetails");
+
+                    if (response.ok && Array.isArray(data)) {
+                        // Clear previous content
+                        swapStationDetails.innerHTML = "";
+
+                        // Add markers and display station details
+                        const bounds = new google.maps.LatLngBounds();
+
+                        data.forEach((station) => {
+                            // Validate and parse latitude and longitude
+                            const latitude = parseFloat(station.latitude);
+                            const longitude = parseFloat(station.longitude);
+
+                            if (isNaN(latitude) || isNaN(longitude)) {
+                                console.warn(`Invalid coordinates for station ID ${station.id}:`, station);
+                                return;
+                            }
+
+                            // Determine marker color based on battery percentages
+                            const markerColor = getBatteryColor(station);
+
+                            // Create a marker with the selected icon
+                            const marker = new google.maps.Marker({
+                                position: { lat: latitude, lng: longitude },
+                                map: map,
+                                title: station.name,
+                                icon: {
+                                    url: markerAssets[markerColor],
+                                    scaledSize: new google.maps.Size(30, 30), // Scale marker icon
+                                    origin: new google.maps.Point(0, 0),
+                                    anchor: new google.maps.Point(15, 15), // Anchor at the center
+                                },
+                            });
+
+                            markers.push(marker);
+                            bounds.extend({ lat: latitude, lng: longitude });
+
+                            // Add InfoWindow on marker click
+                            marker.addListener("click", () => {
+                                if (currentInfoWindow) {
+                                    currentInfoWindow.close();
+                                }
+
+                                const infoContent = `
+                                    <h4>${station.name}</h4>`;
+
+                                const infoWindow = new google.maps.InfoWindow({
+                                    content: `<div class="info-window">${infoContent}</div>`,
+                                });
+
+                                // Custom styling for the InfoWindow
+                                const infoWindowDiv = document.createElement("div");
+                                infoWindowDiv.classList.add("info-window");
+                                infoWindowDiv.innerHTML = infoContent;
+
+                                // Apply custom styles
+                                const style = `
+                                    .info-window {
+                                        max-width: 200px; /* Set maximum width */
+                                        max-height: 75px; /* Set maximum height */
+                                        font-size: 12px; /* Smaller font size */
+                                        padding: 5px; /* Reduce padding */
+                                        overflow: hidden; /* Hide overflow content */
+                                    }
+                                        .infoContent{
+                                        font-size: 52px;
+                                        }
+                                `;
+                                const styleTag = document.createElement("style");
+                                styleTag.innerHTML = style;
+                                document.head.appendChild(styleTag);
+
+                                infoWindow.setContent(infoWindowDiv);
+                                infoWindow.open(map, marker);
+                                currentInfoWindow = infoWindow;
+
+                                const batteries = station.batteries;
+
+                                const greaterThan90 = batteries.charge90;
+                                const between80And90 = batteries.charge80;
+                                const between70And80 = batteries.charge70;
+                                const lessThan70 = batteries.charge10 + batteries.charge20 + batteries.charge30 + batteries.charge40 + batteries.charge50 + batteries.charge60;
+
+                                const batteryDetails = `
+                                    <h4>${station.name}</h4>
+                                    <p>Battery Level:</p>
+                                    <ul>
+                                    <li><span class="profile-icon high">${greaterThan90}</span>  >90%</li>
+                                    <li><span class="profile-icon mid-high">${between80And90}</span> 80 - 90% </li>
+                                    <li><span class="profile-icon mid">${between70And80}</span> 70 - 80%</li>
+                                    <li><span class="profile-icon low">${lessThan70}</span> <70%</li>
+                                    </ul>
+                                `;
+
+                                // Insert the details into the specified element
+                                document.getElementById("battery-details").innerHTML = batteryDetails;
+                            });
+
+                            // Update station details
+                            const stationDetails = `
+                      <div>
+                          <p>Station ID: ${station.id}</p>
+                          <p>Name: ${station.name}</p>
+                          <p>Latitude: ${latitude}</p>
+                          <p>Longitude: ${longitude}</p>
+                          <p>Total Batteries: ${station.batteries.total}</p>
+                      </div>
+                      <hr />`;
+                            swapStationDetails.innerHTML += stationDetails;
+                        });
+
+                        // Add clustering
+                        new markerClusterer.MarkerClusterer({ map, markers });
+
+                        // Adjust map bounds
+                        map.fitBounds(bounds);
+                    } else {
+                        swapStationDetails.innerHTML = `<p>Error: No data available or unknown error occurred.</p>`;
+                    }
+                } catch (error) {
+                    console.error("Request failed:", error);
+                    document.getElementById("swapStationDetails").innerHTML = `<p>Error: Request failed. Please try again later.</p>`;
+                }
+            }
+
+            // Initialize the map and fetch station data
+            document.addEventListener("DOMContentLoaded", () => {
+                initMap();
+                callEdgeFunction();
+            });
+        </script>
+
+        <script>
+            document.getElementById("gsearch").addEventListener("input", async function () {
+                const searchQuery = this.value.trim().toLowerCase();
+                const searchSuggestions = document.getElementById("searchSuggestions");
+
+                // Clear previous suggestions
+                searchSuggestions.innerHTML = "";
+
+                if (searchQuery.length < 1) {
+                    return;
+                }
+
+                try {
+                    // Fetch station details
+                    const response = await fetch(edgeFunctionUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization:
+                                "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jbmRoY2tsYmd0cnRscmRyd2VyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTc1MTU1MjIsImV4cCI6MjAzMzA5MTUyMn0.hL5GsW44Exs3rjuWrwjJV1PnCbELAJ3eWAu75MQ0Sf8",
+                        },
+                        body: JSON.stringify({ bikeNumber: "UFS474S" }),
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && Array.isArray(data)) {
+                        const filteredStations = data.filter((station) => station.name.toLowerCase().includes(searchQuery));
+
+                        // Display suggestions
+                        filteredStations.forEach((station) => {
+                            const suggestion = document.createElement("div");
+                            suggestion.textContent = station.name;
+                            suggestion.dataset.latitude = station.latitude;
+                            suggestion.dataset.longitude = station.longitude;
+
+                            suggestion.addEventListener("click", function () {
+                                // Focus map on the selected station
+                                const lat = parseFloat(this.dataset.latitude);
+                                const lng = parseFloat(this.dataset.longitude);
+
+                                if (!isNaN(lat) && !isNaN(lng)) {
+                                    map.setCenter({ lat, lng });
+                                    map.setZoom(15);
+
+                                    // Optional: Trigger click on the corresponding marker
+                                    markers.forEach((marker) => {
+                                        if (marker.getPosition().lat() === lat && marker.getPosition().lng() === lng) {
+                                            google.maps.event.trigger(marker, "click");
+                                        }
+                                    });
+                                }
+
+                                // Clear search suggestions
+                                searchSuggestions.innerHTML = "";
+                            });
+
+                            searchSuggestions.appendChild(suggestion);
+                        });
+                    } else {
+                        searchSuggestions.innerHTML = `<div>No stations found</div>`;
+                    }
+                } catch (error) {
+                    console.error("Search API failed:", error);
+                    searchSuggestions.innerHTML = `<div>Error fetching search results</div>`;
+                }
+            });
+        </script>
+
+    </body>
+</html>

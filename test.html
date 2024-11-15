@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Home Page</title>
+        <!-- <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDKzNNaMvxfF1Up9mPLTvsarv5yWHISXNA" async defer></script> -->
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDKzNNaMvxfF1Up9mPLTvsarv5yWHISXNA&sensor=false"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+        <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
+        <style>
+            /* General layout */
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                height: 100vh;
+                overflow: hidden;
+                display: flex;
+            }
+
+            .container {
+                display: flex;
+                width: 100%;
+                height: 100%;
+            }
+
+            /* Sidebar styles */
+            .sidebar {
+                width: 275px;
+                background-color: #f4f4f4;
+                border-right: 1px solid #ddd;
+                padding: 20px;
+                overflow-y: auto;
+                z-index: 5;
+            }
+
+            .tabs {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 20px;
+                margin-top: 10px;
+            }
+
+            .tab {
+                padding: 10px;
+                cursor: pointer;
+                font-weight: bold;
+                text-align: center;
+                background-color: #cf6262;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                width: 100%;
+                color: white;
+                transition: background-color 0.3s;
+            }
+
+            .tab:hover {
+                background-color: #f1f1f1;
+                color: #000;
+            }
+
+            .tab.active {
+                background-color: #4caf50;
+                color: white;
+            }
+
+            #tab-content {
+                margin-top: 20px;
+                color: black;
+                padding: 15px;
+            }
+
+            #gsearch {
+                width: 100%;
+                padding: 10px;
+                font-size: 16px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }
+
+            #gsearch:focus {
+                border-color: #007bff;
+                outline: none;
+            }
+
+            .suggestions-list {
+                position: absolute;
+                background: #fff;
+                border: 1px solid #ccc;
+                max-height: 200px;
+                overflow-y: auto;
+                width: 245px;
+                z-index: 1000;
+                margin-top: 4px;
+                border-radius: 4px;
+            }
+
+            .suggestions-list div {
+                padding: 10px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: background-color 0.3s ease;
+            }
+
+            .suggestions-list div:hover {
+                background-color: #f0f0f0;
+            }
+
+            /* Map styles */
+            #map {
+                flex: 1;
+                height: 100%;
+            }
+
+            /* User avatar styles */
+            #user-avatar {
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 24px;
+                background-color: #4285f4;
+                color: #fff;
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                cursor: pointer;
+                z-index: 10;
+            }
+
+            #user-avatar img {
+                border-radius: 50%;
+                width: 100%;
+                height: 100%;
+                display: none;
+            }
+
+            /* Popover styles */
+            .popover {
+                display: none;
+                position: absolute;
+                top: 80px;
+                right: 20px;
+                width: 250px;
+                padding: 15px;
+                background-color: white;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+                z-index: 9;
+            }
+
+            .popover.active {
+                display: block;
+            }
+
+            .popover h3,
+            .popover p {
+                margin: 5px 0;
+            }
+
+            .signout-btn {
+                display: flex;
+                align-items: center;
+                background-color: #f44336;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+
+            .signout-btn:hover {
+                background-color: #d32f2f;
+            }
+
+            #battery-details h3 {
+                font-size: 1.5em;
+                color: #333;
+            }
+            #battery-details ul {
+                list-style: none;
+                padding: 0;
+            }
+
+            /* Profile icon styling */
+            .profile-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                color: #fff;
+                font-weight: bold;
+                font-size: 1em;
+                margin-right: 10px;
+                margin-bottom: 5px;
+            }
+
+            /* Color for different battery levels */
+            .high {
+                background-color: #19851d;
+            } /* Green for >90% */
+            .mid-high {
+                background-color: #ffeb3b;
+                color: #333;
+            } /* Yellow for 80-90% */
+            .mid {
+                background-color: #ff9800;
+            } /* Orange for 70-80% */
+            .low {
+                background-color: #f44336;
+            } /* Red for <70% */
+
+            /* Slide-in animation for the sidebar */
+            @keyframes slideInLeft {
+                from {
+                    transform: translateX(-100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+
+            .sidebar {
+                animation: slideInLeft 0.8s ease-out;
+            }
+
+            /* Fade-in animation for map */
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                }
+                to {
+                    opacity: 1;
+                }
+            }
+
+            #map {
+                animation: fadeIn 1s ease-in;
+            }
+
+            /* Pulse effect for the tab */
+            @keyframes pulse {
+                0% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.05);
+                }
+                100% {
+                    transform: scale(1);
+                }
+            }
+
+            .tab.active {
+                animation: pulse 1.5s infinite;
+            }
+
+            /* Zoom-in animation for the search box */
+            @keyframes zoomIn {
+                from {
+                    transform: scale(0.8);
+                    opacity: 0;
+                }
+                to {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+
+            #gsearch {
+                animation: zoomIn 0.6s ease-out;
+            }
+
+            /* Fade-in-up animation for battery details */
+            @keyframes fadeInUp {
+                from {
+                    transform: translateY(20px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+
+            #battery-details {
+                animation: fadeInUp 0.8s ease-out;
+            }
+
+            /* Popover fade-in-down animation */
+            @keyframes fadeInDown {
+                from {
+                    transform: translateY(-20px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+
+            .popover {
+                animation: fadeInDown 0.6s ease-out;
+            }
+
+            /* Rubber-band effect for sign-out button */
+            @keyframes rubberBand {
+                0% {
+                    transform: scale(1);
+                }
+                30% {
+                    transform: scale(1.25, 0.75);
+                }
+                40% {
+                    transform: scale(0.75, 1.25);
+                }
+                50% {
+                    transform: scale(1.15, 0.85);
+                }
+                65% {
+                    transform: scale(0.95, 1.05);
+                }
+                75% {
+                    transform: scale(1.05, 0.95);
+                }
+                100% {
+                    transform: scale(1);
+                }
+            }
+
+            .signout-btn {
+                animation: rubberBand 1s ease;
+            }
+
+            /* Add delay to user avatar fade-in */
+            #user-avatar {
+                animation: fadeIn 1.2s ease-in;
+            }
+        </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Welcome to GoGo Rider</h1>
+        <button class="sign-out-button" onclick="signOut()">Sign Out</button>
+      </div>
+      
+      <div id="user-info" class="user-info">
+        <img id="user-avatar" src="" alt="User Avatar">
+        <span id="user-name"></span>
+      </div>
+    
+      <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+      
+        const supabaseUrl = 'https://ivbxlzzbrhsvjxkcebms.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2Ynhsenpicmhzdmp4a2NlYm1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzEwMzkyOTMsImV4cCI6MjA0NjYxNTI5M30.utG9zehkI8nmnPd6dYRUQ3vK-LY3RK3TE3xHiT1j5V8';
+        const supabase = createClient(supabaseUrl, supabaseKey);
+    
+        // Check if user is signed in on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (error) {
+            console.error("Error fetching session:", error.message);
+            window.location.href = "/web/login.html";
+            return;
+          }
+    
+          if (!session) {
+            // If not signed in, redirect to login page
+            window.location.href = "/web/login.html";
+          } else {
+            // Display user information
+            const user = session.user;
+            document.getElementById('user-avatar').src = user.user_metadata.avatar_url || 'default-avatar.png';
+            document.getElementById('user-name').textContent = user.user_metadata.full_name || user.email;
+            document.getElementById('user-info').style.display = 'flex';
+          }
+        });
+    
+        // Sign Out Function
+        window.signOut = async function () {
+          const { error } = await supabase.auth.signOut();
+          if (error) {
+            console.error("Error signing out:", error.message);
+          } else {
+            console.log("User signed out");
+            window.location.href = "/web/login.html";
+          }
+        };
+      </script>
+    </body>
+    </html>
